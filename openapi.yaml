@@ -1,0 +1,277 @@
+openapi: 3.0.3
+info:
+  title: MeetZone — Timezone Meeting Overlap API
+  description: |
+    Find overlapping meeting windows across 2–12 IANA timezones (BASIC: up to 5) using
+    public timezone data and deterministic scheduling math only. No calendar OAuth or private data.
+
+    **Plan caps (enforced server-side via `X-RapidAPI-Subscription`):**
+    BASIC (default if missing/unknown): overlap max 5 zones, `days` ≤ 7; result-count
+    `limit` (zones search + overlap) clamped to 5 (HTTP 200 + `X-MeetZone-Plan-Clamped`
+    + `plan_note`) instead of 400. PRO/ULTRA/MEGA/CUSTOM: overlap max 12 zones,
+    `days` ≤ 31, 20 ranked slots; zone search up to 50 (default 20). Zones/days over-cap
+    → HTTP 400 `plan_limit_exceeded`.
+  version: 0.1.0
+  contact:
+    name: MeetZone
+servers:
+  - url: https://meetzone-api.mike-tusa.workers.dev
+    description: Origin Worker (RapidAPI Studio base URL; subscribers call via the RapidAPI host)
+tags:
+  - name: health
+  - name: zones
+  - name: overlap
+paths:
+  /v1/health:
+    get:
+      tags: [health]
+      summary: Liveness and version
+      operationId: getHealth
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, version]
+                properties:
+                  ok: { type: boolean, example: true }
+                  version: { type: string, example: "0.1.0" }
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness alias for /v1/health
+      operationId: getHealthAlias
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, version]
+                properties:
+                  ok: { type: boolean, example: true }
+                  version: { type: string, example: "0.1.0" }
+  /v1/zones/search:
+    get:
+      tags: [zones]
+      summary: Search IANA zones by city, alias, or id
+      operationId: searchZones
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: City, alias, or partial IANA id
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 5, example: 5 }
+          description: Max results (default/example 5). BASIC clamps above 5 (header X-MeetZone-Plan-Clamped); PRO max 50, default 20 when omitted on PRO.
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+          description: YYYY-MM-DD — include offset/abbreviation for that date
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonesSearchResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+  /v1/zones:
+    get:
+      tags: [zones]
+      summary: Alias for /v1/zones/search
+      operationId: searchZonesAlias
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: City, alias, or partial IANA id
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 5, example: 5 }
+          description: Max results (default/example 5). BASIC clamps above 5 (header X-MeetZone-Plan-Clamped); PRO max 50, default 20 when omitted on PRO.
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+          description: YYYY-MM-DD — include offset/abbreviation for that date
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZonesSearchResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+  /v1/overlap:
+    post:
+      tags: [overlap]
+      summary: Ranked UTC meeting overlap windows across zones
+      operationId: postOverlap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OverlapRequest"
+            examples:
+              hub:
+                summary: NYC + London (Hub verified, count > 0 under 09:00–17:00)
+                value:
+                  zones: ["America/New_York", "Europe/London"]
+                  work_hours: { start: "09:00", end: "17:00" }
+                  days: ["2026-09-24"]
+                  duration_minutes: 30
+                  limit: 5
+                  include_ics: true
+      responses:
+        "200":
+          description: Ranked overlap slots
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OverlapResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "404":
+          $ref: "#/components/responses/UnknownZone"
+components:
+  securitySchemes:
+    RapidApiKey:
+      type: apiKey
+      in: header
+      name: X-RapidAPI-Key
+  schemas:
+    WorkHours:
+      type: object
+      required: [start, end]
+      properties:
+        start:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):([0-5]\\d)$"
+          example: "09:00"
+          description: Local HH:mm applied independently in each zone
+        end:
+          type: string
+          pattern: "^([01]\\d|2[0-3]):([0-5]\\d)$"
+          example: "17:00"
+    OverlapRequest:
+      type: object
+      required: [zones]
+      properties:
+        zones:
+          type: array
+          minItems: 2
+          maxItems: 12
+          items: { type: string }
+          example: ["America/New_York", "Europe/London"]
+          description: "2–12 IANA ids (BASIC: up to 5; over → plan_limit_exceeded)."
+        work_hours:
+          $ref: "#/components/schemas/WorkHours"
+        days:
+          type: array
+          maxItems: 31
+          items: { type: string, format: date }
+          description: YYYY-MM-DD days (default today UTC + next 6). BASIC capped at 7; PRO at 31.
+        duration_minutes:
+          type: integer
+          minimum: 5
+          maximum: 480
+          default: 30
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 5
+          example: 5
+          description: Max ranked slots (default/example 5). BASIC clamps above 5; PRO up to 20 ranked slots.
+        include_ics:
+          type: boolean
+          default: true
+    ZoneLocalWindow:
+      type: object
+      properties:
+        zone: { type: string }
+        start_local: { type: string, example: "2026-09-24T09:00" }
+        end_local: { type: string }
+        utc_offset_minutes: { type: integer }
+        abbreviation: { type: string }
+    OverlapSlot:
+      type: object
+      properties:
+        rank: { type: integer }
+        start_utc: { type: string, format: date-time }
+        end_utc: { type: string, format: date-time }
+        duration_minutes: { type: integer }
+        local:
+          type: array
+          items: { $ref: "#/components/schemas/ZoneLocalWindow" }
+    OverlapResponse:
+      type: object
+      required: [ok, query, count, slots]
+      properties:
+        ok: { type: boolean, example: true }
+        query: { type: object }
+        plan_note:
+          type: string
+          description: Present when BASIC clamped limit (also echoed under query.plan_note)
+        count: { type: integer }
+        slots:
+          type: array
+          items: { $ref: "#/components/schemas/OverlapSlot" }
+        ics: { type: string, description: ICS for top slot }
+    ZonesSearchResponse:
+      type: object
+      properties:
+        ok: { type: boolean }
+        query: { type: string }
+        count: { type: integer }
+        plan_note:
+          type: string
+          description: Present when BASIC clamped limit (also X-MeetZone-Plan-Clamped response header)
+        zones:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+              aliases:
+                type: array
+                items: { type: string }
+              region: { type: string }
+              utc_offset_minutes: { type: integer }
+              abbreviation: { type: string }
+    ErrorBody:
+      type: object
+      properties:
+        ok: { type: boolean, example: false }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: {}
+  responses:
+    ValidationError:
+      description: Validation error or plan_limit_exceeded
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    UnknownZone:
+      description: Unknown IANA zone
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+    PlanLimitExceeded:
+      description: Request exceeds plan hard caps (code plan_limit_exceeded)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorBody" }
+security:
+  - RapidApiKey: []
