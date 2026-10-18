@@ -5,9 +5,9 @@
   "description": "Timezone meeting-overlap API \u2014 find shared availability across IANA zones",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "npx wrangler@4 dev",
     "types": "tsc --noEmit && wrangler types",
-    "deploy": "wrangler deploy"
+    "deploy": "npx wrangler@4 deploy"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240925.0",
@@ -17,7 +17,7 @@
     "wrangler": "^3.78.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "license": "MIT"
 }
