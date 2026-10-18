@@ -1,7 +1,7 @@
 /**
  * MeetZone remote MCP server (v0.2.0). Hand-rolled JSON-RPC 2.0 over Streamable HTTP; no SDK, no dependencies.
- * Transport/protocol code adapted from DnsGuard src/lib/mcp.js (agent-ready recipe r2), incl. CertGuard c2606ed
- * (modern 2026-07-28 tool results keep _meta["meetzone/error"] next to serverInfo).
+ * Transport/protocol code adapted from DnsGuard src/lib/mcp.js, incl. CertGuard c2606ed (modern 2026-07-28 tool results
+ * keep _meta["meetzone/error"] next to serverInfo).
  *
  * Dual-era and stateless:
  *  - Modern (MCP 2026-07-28): per-request params._meta protocolVersion + MCP-Protocol-Version / Mcp-Method / Mcp-Name
@@ -363,7 +363,7 @@ export async function handleMcp(request, env, ctx, deps) {
     }
     if (out.response) responses.push(out.response);
     if (single) status = out.status || 200;
-    if (out.headers) headers = { ...headers, ...out.headers }; // batches too (recipe §2: quota/Retry-After passthrough)
+    if (out.headers) headers = { ...headers, ...out.headers }; // batches too
   }
   if (!responses.length) return reply(202, null);
   const exposed = {};
