@@ -1,4 +1,4 @@
-/** Agent-facing docs generated from code constants (recipe r2 §3-5, §13.2). Never hard-code a limit twice. */
+/** Agent-facing docs generated from code constants. Never hard-code a limit twice. */
 import { TOOLS, SUPPORTED_VERSIONS, DISCOVERY_PER_MIN, SERVER_INFO } from './mcp.js';
 import { BASIC_CAPS, MCP_CALLS_PER_MIN, RAPIDAPI_URL, SUPPORT_EMAIL, VERSION, PRO_PRICE } from './meta.js';
 import { resolvePlan } from './plan.ts';
