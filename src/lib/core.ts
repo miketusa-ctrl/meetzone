@@ -1,8 +1,8 @@
 /**
- * Shared gate + limits for the MCP endpoint (agent-ready recipe r2 §1, adapted).
- * MeetZone's REST routes are only reachable through RapidAPI (proxy-secret gate in index.ts), so the REST contract
- * is untouched: runTool() calls the SAME route handlers (handleOverlap / handleZonesSearch) with a synthetic request
- * that carries no X-RapidAPI-Subscription header, i.e. always the BASIC (free) caps.
+ * Shared gate + limits for the MCP endpoint. MeetZone's REST routes are only reachable through RapidAPI (proxy-secret
+ * gate in index.ts), so the REST contract is untouched: runTool() calls the SAME route handlers (handleOverlap /
+ * handleZonesSearch) with a synthetic request that carries no X-RapidAPI-Subscription header, i.e. always the BASIC
+ * (free) caps.
  */
 // @ts-ignore -- plain JS module
 import { MCP_CALLS_PER_MIN, RAPIDAPI_URL } from "./meta.js";
